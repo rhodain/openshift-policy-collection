@@ -1,0 +1,61 @@
+---
+# -----------------------------------
+# GLOBAL SETTINGS
+# -----------------------------------
+type: vmware
+baseDomain: lab5.vs.csint.cz
+environment: lab
+clusterName: lab5
+
+proxy:
+  http_proxy: "http://ngproxy-test.csint.cz:8080/"
+  https_proxy: "http://ngproxy-test.csint.cz:8080/"
+  no_proxy: ".cluster.local,.cs-test.cz,.cs.cz,.csin.cz,.csint.cz,.svc,10.88.88.0/21,10.88.88.0/24,100.123.0.0/17,100.123.128.0/17,127.0.0.1,api-int.lab5.ocp4.vs.csint.cz,localhost"
+
+sysArgoNamespace: openshift-gitops
+
+
+# -----------------------------------
+# COMPONENTS
+# -----------------------------------
+components:
+
+  - appName: "namespace"
+    appType: helm
+    appNamespace: ""
+    appVersion: "lpechacek/dev"
+    appReleaseName: namespace
+    appRepoURL: https://github.com/rhodain/openshift-policy-collection.git
+    appRepoPath: openshift-clusters/apps/namespace
+    appSyncPolicy:
+      automated:
+        selfHeal: true
+        prune: false
+      syncOptions:
+        - CreateNamespace=false
+        - SkipDryRunOnMissingResource=true
+        - Wait=true
+    appAnnotation:
+      example.com/test-annotation: "This is a test annotation"
+      example.com/test-annotation-2: "This is a test annotation 2"
+    appLabels:
+    #appModel: push       //POUZE POKUD CHCEME POUZIT PUSH MODE MISTO PULL MODE.
+
+  - appName: "troubleshooting"
+    appType: helm
+    appNamespace: "default"
+    appVersion: "lpechacek/dev"
+    appReleaseName: troubleshooting
+    appRepoURL: https://github.com/rhodain/openshift-policy-collection.git
+    appRepoPath: openshift-clusters/apps/troubleshooting
+    appSyncPolicy:
+      automated:
+        selfHeal: true
+        prune: false
+      syncOptions:
+        - CreateNamespace=false
+        - SkipDryRunOnMissingResource=true
+        - Wait=true
+    appAnnotation:
+    appLabels:
+      purpose: troubleshooting

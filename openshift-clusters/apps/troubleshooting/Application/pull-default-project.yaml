@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    apps.open-cluster-management.io/ocm-managed-cluster: lab5
+    apps.open-cluster-management.io/ocm-managed-cluster-app-namespace: openshift-gitops
+    argocd.argoproj.io/refresh: normal
+    argocd.argoproj.io/skip-reconcile: "true"
+  labels:
+    apps.open-cluster-management.io/pull-to-ocm-managed-cluster: "true"
+    cluster: lab5
+  name: lab5-troubleshooting
+  namespace: openshift-gitops
+spec:
+  destination:
+    name: lab5
+    namespace: default
+  project: default
+  source:
+    helm:
+      releaseName: troubleshooting
+    path: openshift-clusters/apps/troubleshooting
+    repoURL: https://github.com/rhodain/openshift-policy-collection.git
+    targetRevision: lpechacek/dev
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - SkipDryRunOnMissingResource=true
+      - Wait=true

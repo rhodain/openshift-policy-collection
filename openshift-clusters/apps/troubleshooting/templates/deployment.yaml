@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    {{- include "troubleshooting.labels" . | nindent 4 }}
+  name: troubleshooting
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "troubleshooting.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "troubleshooting.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - image: "registry.redhat.io/ubi9"
+        name: test
+        command: ["sleep", "infinity"]

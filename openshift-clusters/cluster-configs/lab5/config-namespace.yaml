@@ -1,0 +1,9 @@
+## NAMESPACE CONFIGURATION
+---
+namespaces:
+- name: secrets-testing-app
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops
+- name: secrets-testing-app-2
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops

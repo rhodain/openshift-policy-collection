@@ -1,0 +1,16 @@
+{{- range $ns := .Values.namespaces }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns.name }}
+  {{- if $ns.annotations }}
+  annotations:
+    {{- toYaml $ns.annotations | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "namespace.labels" $ | nindent 4 }}
+    {{- if $ns.labels }}
+      {{- toYaml $ns.labels | nindent 4 }}
+    {{- end }}
+---
+{{- end }}

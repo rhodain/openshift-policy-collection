@@ -1,0 +1,217 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: clusters-configurations
+  namespace: openshift-gitops
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: https://github.com/rhodain/openshift-policy-collection.git
+              revision: "lpechacek/dev"
+              files:
+                - path: "openshift-clusters/cluster-configs/**/config-cluster.yaml"
+          - list:
+              elementsYaml: '{{ .components | toJson }}'
+  template:
+    metadata:
+      name: '{{.clusterName}}-{{.appName}}'
+    spec:
+      project: openshift
+      source:
+        repoURL: https://will-be-replaced
+      destination:
+        name: '{{.clusterName}}'
+        namespace: '{{.appNamespace}}'
+      syncPolicy:
+        automated:
+          selfHeal: true
+          prune: false
+        syncOptions:
+          - CreateNamespace=false
+          - SkipDryRunOnMissingResource=true
+          - Wait=true
+  templatePatch: |
+    {{/* 
+    ----------------------------------------------------------------------------
+    SETTING PULL/PUSH MODE OF APPLICATION
+    ----------------------------------------------------------------------------
+    */}}
+    
+    {{- $ArgoAppModel := "" }}
+    {{- if and (hasKey . "appModel") (eq .appModel "push") }}
+    {{- $ArgoAppModel = "push" }}
+    {{- else }}
+    {{- $ArgoAppModel = "pull" }}
+    {{- end }}
+
+    {{/* 
+    ----------------------------------------------------------------------------
+    UPDATING METADATA LABELS & ANNOTATIONS BASED ON APPLICATION MODE [pull|push]
+    ----------------------------------------------------------------------------
+    */}}
+
+    metadata:
+      name: '{{.clusterName}}-{{.appName}}'
+
+      {{- if and (hasKey . "appAnnotation") .appAnnotation }}
+      annotations:
+        {{- toYaml .appAnnotation | nindent 4 }}
+        {{- if eq $ArgoAppModel "pull" }}
+        apps.open-cluster-management.io/ocm-managed-cluster: "{{.clusterName}}"
+        apps.open-cluster-management.io/ocm-managed-cluster-app-namespace: "{{.sysArgoNamespace}}"
+        argocd.argoproj.io/skip-reconcile: "true"
+        {{- end }}
+      
+      {{- else if or (and (hasKey . "appAnnotation" ) (not (.appAnnotation)) ) (not (hasKey . "appAnnotation")) }}
+        {{- if eq $ArgoAppModel "pull" }}
+      annotations:
+        apps.open-cluster-management.io/ocm-managed-cluster: "{{.clusterName}}"
+        apps.open-cluster-management.io/ocm-managed-cluster-app-namespace: "{{.sysArgoNamespace}}"
+        argocd.argoproj.io/skip-reconcile: "true"
+        {{- end }}
+      {{- else }}
+      {{- end }}      
+      
+      labels:
+        {{- if and (hasKey . "appLabels") .appLabels }}
+        {{- toYaml .appLabels | nindent 4 }}
+        {{- end }}
+        {{- if eq $ArgoAppModel "pull" }}
+        apps.open-cluster-management.io/pull-to-ocm-managed-cluster: "true"
+        {{- end }}
+        environment: '{{.environment}}'
+        cluster: '{{.clusterName}}'
+        type: '{{.type}}'
+
+
+    {{/* 
+    ----------------------------------------------------------------------------
+    UPDATING SPEC SECTION
+    ----------------------------------------------------------------------------
+    */}}    
+    spec:
+      
+      {{/* 
+      --------------------------------------------------------------------------
+      SINGLE SOURCE
+      --------------------------------------------------------------------------
+      */}}
+
+      {{- if not (hasKey . "appPostRender") }}
+      source:
+        {{/*
+        ------------------------------------------------------------------------
+        SINGLE SOURCE - HELM
+        ------------------------------------------------------------------------
+        */}}
+
+        {{- if eq "helm" .appType }}
+          repoURL: '{{.appRepoURL}}'
+          targetRevision: '{{.appVersion}}'
+          path: '{{.appRepoPath}}'
+          helm:
+            releaseName: '{{.appReleaseName}}'
+            valueFiles:
+              - "/openshift-clusters/apps/values/{{.appName}}.yaml"
+              - "/openshift-clusters/cluster-configs/{{.clusterName}}/config-{{.appName}}.yaml"
+              - "/openshift-clusters/cluster-configs/{{.clusterName}}/config-cluster.yaml"
+        {{- end }}
+        
+        {{/*
+        ------------------------------------------------------------------------
+        SINGLE SOURCE - KUSTOMIZE
+        ------------------------------------------------------------------------
+        */}}
+
+        {{- if eq "kustomize" .appType }}
+          repoURL: '{{.appRepoURL}}'
+          path: '{{.appRepoPath}}'
+          targetRevision: '{{.appVersion}}'
+        {{- end }}
+
+      {{- else }}
+      
+      {{/* 
+      --------------------------------------------------------------------------
+      MULTI SOURCE
+      --------------------------------------------------------------------------
+       */}}
+
+      source: null
+      sources:
+        {{/*
+        ------------------------------------------------------------------------
+        MULTI SOURCE - HELM
+        ------------------------------------------------------------------------
+        */}}
+
+        {{- if eq "helm" .appType }}
+        - repoURL: '{{.appRepoURL}}'
+          targetRevision: '{{.appVersion}}'
+          path: '{{.appRepoPath}}'
+          helm:
+            releaseName: '{{.appReleaseName}}'
+            valueFiles:
+              - "/openshift-clusters/apps/values/{{.appName}}.yaml"
+              - "/openshift-clusters/cluster-configs/{{.clusterName}}/config-{{.appName}}.yaml"
+              - "/openshift-clusters/cluster-configs/{{.clusterName}}/config-cluster.yaml"
+
+        {{- end}}
+
+        {{/*
+        ------------------------------------------------------------------------
+        MULTI SOURCE - KUSTOMIZE
+        ------------------------------------------------------------------------
+        */}}
+
+        {{- if eq "kustomize" .appType }}
+          repoURL: '{{.appRepoURL}}'
+          path: '{{.appRepoPath}}'
+          targetRevision: '{{.appVersion}}'
+        {{- end }}
+
+        {{/*
+        ------------------------------------------------------------------------
+        MULTI SOURCE - POST-RENDER
+        ------------------------------------------------------------------------
+        */}}
+
+        {{- if (hasKey . "appPostRender") }}
+        - repoURL: '{{.appPostRender.repoURL}}'
+          targetRevision: '{{.appPostRender.appVersion}}'
+          path: '{{.appPostRender.repoPath}}'
+          helm:
+            releaseName: '{{.appPostRender.releaseName}}'
+            valueFiles:
+              - "/openshift-clusters/apps/values/{{.appName}}.yaml"
+              - "/openshift-clusters/cluster-configs/{{.clusterName}}/config-{{.appName}}.yaml"
+              - "/openshift-clusters/cluster-configs/{{.clusterName}}/config-cluster.yaml"     
+        {{- end }}
+        
+      {{- end }}
+
+      {{/* 
+      ------------------------------------------------------------------------
+      SYNC POLICY
+      ------------------------------------------------------------------------
+       */}}
+      {{- if and (hasKey . "appSyncPolicy") .appSyncPolicy }}
+      syncPolicy:
+        {{- if and (hasKey .appSyncPolicy "automated") .appSyncPolicy.automated }}
+        {{- with .appSyncPolicy.automated }}
+        automated:
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        {{- if and (hasKey .appSyncPolicy "syncOptions") .appSyncPolicy.syncOptions }}
+        {{- with .appSyncPolicy.syncOptions }}
+        syncOptions:
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
+      {{- end }}

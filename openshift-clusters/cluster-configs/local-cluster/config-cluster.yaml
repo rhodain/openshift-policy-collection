@@ -1,0 +1,39 @@
+---
+# -----------------------------------
+# GLOBAL SETTINGS
+# -----------------------------------
+type: vmware
+baseDomain: ocp4.vs.csint.cz
+environment: lab
+clusterName: local-cluster
+
+proxy:
+  http_proxy: "http://ngproxy-test.csint.cz:8080/"
+  https_proxy: "http://ngproxy-test.csint.cz:8080/"
+  no_proxy: ".cs-test.cz,.cs.cz,.csint.cz,.csin.cz,10.88.88.0/21,api-int.hub.ocp4.vs.csint.cz"
+
+sysArgoNamespace: openshift-gitops
+
+# -----------------------------------
+# COMPONENTS
+# -----------------------------------
+components:
+
+  - appName: "namespace"
+    appType: helm
+    appNamespace: ""
+    appVersion: "lpechacek/dev"
+    appReleaseName: namespace
+    appRepoURL: https://github.com/rhodain/openshift-policy-collection.git
+    appRepoPath: openshift-clusters/apps/namespace
+    appSyncPolicy:
+      automated:
+        selfHeal: true
+        prune: false
+      syncOptions:
+        - CreateNamespace=false
+        - SkipDryRunOnMissingResource=true
+        - Wait=true
+    appAnnotation:
+    appLabels:
+    appModel: push
