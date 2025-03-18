@@ -3,9 +3,9 @@
 # GLOBAL SETTINGS
 # -----------------------------------
 type: vmware
-baseDomain: lab5.vs.csint.cz
+baseDomain: sbr-virt.gsslab.brq2.redhat.com
 environment: lab
-clusterName: lab5
+clusterName: rhodain02
 
 proxy:
   http_proxy: "http://ngproxy-test.csint.cz:8080/"
